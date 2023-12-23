@@ -48,12 +48,12 @@ class ConfigCommand extends BaseCommand {
       shouldSave = true;
     }
 
-    if (wasParsed(ConfigKeys.useGitCache.paramKey)) {
-      final gitCache = boolArg(ConfigKeys.useGitCache.paramKey);
+    if (wasParsed(ConfigKeys.gitCache.paramKey)) {
+      final gitCache = boolArg(ConfigKeys.gitCache.paramKey);
       logger.info(
         'Setting use git cache to: ${yellow.wrap(gitCache.toString())}',
       );
-      current.useGitCache = gitCache;
+      current.gitCache = gitCache;
       shouldSave = true;
     }
 
@@ -76,9 +76,9 @@ class ConfigCommand extends BaseCommand {
         rethrow;
       }
       updateProgress.complete('Settings saved.');
-    } else {
-      // How do I scape a file.path?
 
+      logger.detail('Settings saved to $kAppConfigFile');
+    } else {
       logger
         ..info('FVM Configuration:')
         ..info('Located at ${ctx.configPath}')

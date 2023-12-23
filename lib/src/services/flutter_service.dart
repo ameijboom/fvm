@@ -8,7 +8,6 @@ import 'package:fvm/src/services/releases_service/releases_client.dart';
 import 'package:fvm/src/utils/context.dart';
 import 'package:fvm/src/utils/parsers/git_clone_update_printer.dart';
 import 'package:git/git.dart';
-import 'package:io/io.dart' as io;
 import 'package:mason_logger/mason_logger.dart';
 
 import '../../exceptions.dart';
@@ -16,13 +15,18 @@ import '../../fvm.dart';
 import '../models/flutter_version_model.dart';
 import '../utils/commands.dart';
 
-/// Helpers and tools to interact with Flutter sdk
+/// Provides functionality to interact with and manage the Flutter SDK.
+/// This class includes methods for upgrading, installing, and verifying Flutter SDK versions.
 class FlutterService extends ContextService {
   FlutterService(super.context);
 
+  /// Retrieves an instance of [FlutterService] from the current context.
   static FlutterService get fromContext => getProvider<FlutterService>();
 
-  /// Upgrades a cached channel
+  /// Upgrades a cached Flutter SDK channel to the latest version.
+  /// Throws [AppException] if the provided version is not a channel.
+  ///
+  /// [version] - The channel version of the Flutter SDK to upgrade.
   Future<void> runUpgrade(CacheFlutterVersion version) async {
     if (version.isChannel) {
       await runFlutter(['upgrade'], version: version);
@@ -31,7 +35,10 @@ class FlutterService extends ContextService {
     }
   }
 
-  /// Clones Flutter SDK from Version Number or Channel
+  /// Installs the Flutter SDK from a specified [FlutterVersion].
+  /// The method handles both channel and specific version installations.
+  ///
+  /// [version] - The version of the Flutter SDK to install.
   Future<void> install(FlutterVersion version) async {
     final versionDir = CacheService(context).getVersionCacheDir(version.name);
 
@@ -112,8 +119,8 @@ class FlutterService extends ContextService {
     return;
   }
 
-  /// Updates local Flutter repo mirror
-  /// Will be used mostly for testing
+  /// Updates the local Flutter repository mirror.
+  /// This method is primarily used for testing purposes.
   Future<void> updateLocalMirror() async {
     final isGitDir = await GitDir.isGitDir(context.gitCachePath);
 
@@ -143,7 +150,7 @@ class FlutterService extends ContextService {
     }
   }
 
-  // Ensures cache.dir exists and its up to date
+  /// Ensures that the git cache directory exists and is up-to-date.
   Future<void> _ensureCacheDir() async {
     final isGitDir = await GitDir.isGitDir(context.gitCachePath);
 
@@ -153,8 +160,10 @@ class FlutterService extends ContextService {
     }
   }
 
-  /// Gets a commit for the Flutter repo
-  /// If commit does not exist returns null
+  /// Checks if a given commit exists in the Flutter repository.
+  /// Returns true if the commit exists, otherwise false.
+  ///
+  /// [commit] - The commit SHA or hash to check.
   Future<bool> isCommit(String commit) async {
     final commitSha = await getReference(commit);
     if (commitSha == null) {
@@ -163,8 +172,10 @@ class FlutterService extends ContextService {
     return commit.contains(commitSha);
   }
 
-  /// Gets a tag for the Flutter repository
-  /// If tag does not exist returns null
+  /// Checks if a given tag exists in the Flutter repository.
+  /// Returns true if the tag exists, otherwise false.
+  ///
+  /// [tag] - The tag to check.
   Future<bool> isTag(String tag) async {
     final commitSha = await getReference(tag);
     if (commitSha == null) {
@@ -175,6 +186,8 @@ class FlutterService extends ContextService {
     return tags.where((t) => t == tag).isNotEmpty;
   }
 
+  /// Retrieves a list of all tags from the local Flutter repository mirror.
+  /// Returns an empty list if no tags are found or on failure.
   Future<List<String>> getTags() async {
     await _ensureCacheDir();
     final isGitDir = await GitDir.isGitDir(context.gitCachePath);
@@ -193,6 +206,10 @@ class FlutterService extends ContextService {
         .toList();
   }
 
+  /// Gets a reference (commit SHA) for a given ref in the Flutter repository.
+  /// Returns null if the ref does not exist.
+  ///
+  /// [ref] - The reference to verify (can be a branch, tag, or commit SHA).
   Future<String?> getReference(String ref) async {
     await _ensureCacheDir();
     final isGitDir = await GitDir.isGitDir(context.gitCachePath);
@@ -210,29 +227,5 @@ class FlutterService extends ContextService {
     } on Exception {
       return null;
     }
-  }
-}
-
-class FlutterServiveMock extends FlutterService {
-  FlutterServiveMock(FVMContext context) : super(context);
-
-  @override
-  Future<void> install(FlutterVersion version) async {
-    /// Moves directory from main context HOME/fvm/versions to test context
-
-    final mainContext = FVMContext.main;
-    var cachedVersion = CacheService(mainContext).getVersion(version);
-    if (cachedVersion == null) {
-      await FlutterService(mainContext).install(version);
-      cachedVersion = CacheService(mainContext).getVersion(version);
-    }
-    final versionDir = CacheService(mainContext).getVersionCacheDir(
-      version.name,
-    );
-    final testVersionDir = CacheService(context).getVersionCacheDir(
-      version.name,
-    );
-
-    await io.copyPath(versionDir.path, testVersionDir.path);
   }
 }

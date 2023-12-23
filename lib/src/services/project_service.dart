@@ -8,96 +8,64 @@ import 'package:fvm/src/utils/extensions.dart';
 import 'package:fvm/src/utils/pretty_json.dart';
 import 'package:path/path.dart' as path;
 
-/// Flutter Project Services
-/// APIs for interacting with local Flutter projects
-///
-/// This class provides methods for interacting with local Flutter projects.
+/// Provides services for interacting with local Flutter projects.
+/// This includes functionalities like finding and updating project configurations.
 class ProjectService extends ContextService {
+  /// Constructs the ProjectService with the given context.
   ProjectService(super.context);
 
-  /// Gets project service from context
+  /// Retrieves an instance of ProjectService from the provided context.
   static ProjectService get fromContext => getProvider<ProjectService>();
 
-  /// Recursive look up to find nested project directory
-  /// Can start at a specific [directory] if provided
+  /// Recursively searches for a Flutter project directory starting from [directory].
+  /// If [directory] is null, the search begins from the current working directory.
   ///
-  /// This method performs a recursive search to find the nearest ancestor
-  /// directory that contains a Flutter project. If a specific [directory] is provided,
-  /// the search starts from that directory. Otherwise, the search starts from the
-  /// current working directory.
-  ///
-  /// Returns the [Project] instance for the found project.
+  /// [directory] - The directory to start the search from. Defaults to the current working directory if null.
   Project findAncestor({
-    Directory? directory,
+    Directory? directory, // The directory to start the search from.
   }) {
-    // Get directory, defined root or current
     directory ??= Directory(context.workingDirectory);
-
-    // Checks if the directory is root
     final isRootDir = path.rootPrefix(directory.path) == directory.path;
-
-    // Gets project from directory
     final project = Project.loadFromPath(directory.path);
 
-    // If project has a config return it
     if (project.hasConfig) return project;
-
-    // if project has a pubspec file return it
-    // if (project.hasPubspec) return project;
-
-    // Return working directory if has reached root
     if (isRootDir) return Project.loadFromPath(context.workingDirectory);
-
-    return findAncestor(
-      directory: directory.parent,
-    );
+    return findAncestor(directory: directory.parent);
   }
 
-  /// Search for version configured
-  ///
-  /// This method searches for the version of the Flutter SDK that is configured for
-  /// the current project. It uses the [findAncestor] method to find the project directory.
-  ///
-  /// Returns the pinned Flutter SDK version for the project, or `null` if no version is configured.
+  /// Searches for the Flutter SDK version configured for the current project.
+  /// Returns the version name or `null` if no version is pinned.
   String? findVersion() {
     final project = findAncestor();
     return project.pinnedVersion?.name;
   }
 
-  /// Update the project with new configurations
+  /// Updates the project with new configurations.
   ///
-  /// The [project] parameter is the project to be updated. The optional parameters are:
-  /// - [flavors]: A map of flavor configurations.
-  /// - [pinnedVersion]: The new pinned version of the Flutter SDK.
-  ///
-  /// This method updates the project's configuration with the provided parameters. It creates
-  /// or updates the project's config file. The updated project is returned.
+  /// - [project] - The project to update.
+  /// - [flavors] - A map of flavor configurations to apply to the project. Defaults to an empty map.
+  /// - [flutterSdkVersion] - The Flutter SDK version to pin to this project. If null, the version won't be changed.
+  /// - [updateVscodeSettings] - A flag to determine whether to update VS Code settings. If null, the setting remains unchanged.
   Project update(
     Project project, {
-    Map<String, String> flavors = const {},
-    String? flutterSdkVersion,
-    bool? updateVscodeSettings,
+    Map<String, String> flavors = const {}, // Additional flavor configurations.
+    String? flutterSdkVersion, // Flutter SDK version to pin.
+    bool? updateVscodeSettings, // Whether to update VS Code settings.
   }) {
     final newConfig = project.config ?? ProjectConfig();
-
     final config = newConfig.copyWith(
       flavors: flavors,
       flutterSdkVersion: flutterSdkVersion,
       updateVscodeSettings: updateVscodeSettings,
     );
 
-    // Update flavors
     final configFile = project.configPath.file;
-
-    // If config file does not exists create it
     if (!configFile.existsSync()) {
       configFile.createSync(recursive: true);
     }
 
     final jsonContents = prettyJson(config.toMap());
-
     configFile.write(jsonContents);
-
     return Project.loadFromPath(project.path);
   }
 }

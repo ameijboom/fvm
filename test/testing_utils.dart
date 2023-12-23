@@ -6,12 +6,15 @@ import 'package:fvm/src/models/cache_flutter_version_model.dart';
 import 'package:fvm/src/models/config_model.dart';
 import 'package:fvm/src/models/flutter_version_model.dart';
 import 'package:fvm/src/runner.dart';
+import 'package:fvm/src/services/cache_service.dart';
+import 'package:fvm/src/services/flutter_service.dart';
 import 'package:fvm/src/services/logger_service.dart';
 import 'package:fvm/src/services/releases_service/releases_client.dart';
 import 'package:fvm/src/utils/context.dart';
 import 'package:git/git.dart';
+import 'package:io/io.dart';
 import 'package:meta/meta.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as p;
 import 'package:scope/scope.dart';
 import 'package:test/test.dart';
 
@@ -42,9 +45,9 @@ Future<String> getStdout(String command) async {
   // This directory is most likely in the user home folder but could be anywhere
   // So we need to get the relative path from the script to the current directory
   // and then join it to the ctx.workingDirectory
-  final scriptPath = join(Directory.current.path, executable);
-  final relativePath = relative(scriptPath, from: ctx.workingDirectory);
-  final executablePath = join(ctx.workingDirectory, relativePath);
+  final scriptPath = p.join(Directory.current.path, executable);
+  final relativePath = p.relative(scriptPath, from: ctx.workingDirectory);
+  final executablePath = p.join(ctx.workingDirectory, relativePath);
 
   final arguments = command.split(' ').sublist(1);
   final result = await Process.run(
@@ -175,7 +178,7 @@ void groupWithContext(
 
 /// Returns the [name] of a branch or tag for a [version]
 Future<String?> getBranch(String version) async {
-  final versionDir = Directory(join(ctx.versionsCachePath, version));
+  final versionDir = Directory(p.join(ctx.versionsCachePath, version));
 
   final isGitDir = await GitDir.isGitDir(versionDir.path);
 
@@ -190,7 +193,7 @@ Future<String?> getBranch(String version) async {
 
 /// Returns the [name] of a tag [version]
 Future<String?> getTag(String version) async {
-  final versionDir = Directory(join(ctx.versionsCachePath, version));
+  final versionDir = Directory(p.join(ctx.versionsCachePath, version));
 
   final isGitDir = await GitDir.isGitDir(versionDir.path);
 
@@ -211,7 +214,7 @@ void forceUpdateFlutterSdkVersionFile(
   CacheFlutterVersion version,
   String sdkVersion,
 ) {
-  final sdkVersionFile = File(join(version.directory, 'version'));
+  final sdkVersionFile = File(p.join(version.directory, 'version'));
   sdkVersionFile.writeAsStringSync(sdkVersion);
 }
 
@@ -233,4 +236,30 @@ Future<DateTime> getDateOfLastCommit() async {
   final lastCommitDate = result.stdout.trim();
 
   return DateTime.parse(lastCommitDate);
+}
+
+/// A mock implementation of [FlutterService] for testing purposes.
+/// This class simulates Flutter SDK installations by copying versions from the main context.
+class FlutterServiveMock extends FlutterService {
+  FlutterServiveMock(super.context);
+
+  @override
+  Future<void> install(FlutterVersion version) async {
+    /// Moves directory from main context HOME/fvm/versions to test context
+
+    final mainContext = FVMContext.main;
+    var cachedVersion = CacheService(mainContext).getVersion(version);
+    if (cachedVersion == null) {
+      await FlutterService(mainContext).install(version);
+      cachedVersion = CacheService(mainContext).getVersion(version);
+    }
+    final versionDir = CacheService(mainContext).getVersionCacheDir(
+      version.name,
+    );
+    final testVersionDir = CacheService(context).getVersionCacheDir(
+      version.name,
+    );
+
+    await copyPath(versionDir.path, testVersionDir.path);
+  }
 }

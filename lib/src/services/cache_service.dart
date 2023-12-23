@@ -16,41 +16,38 @@ enum CacheIntegrity {
   versionMismatch,
 }
 
-/// Service to interact with FVM Cache
+/// This class provides methods to manage the local cache of Flutter SDK versions.
 class CacheService extends ContextService {
   CacheService(super.context);
 
-  /// Directory where local versions are cached
+  /// Gets an instance of [CacheService] from the current context.
+  /// This static getter allows for easy access to the cache service from anywhere in the app.
   static CacheService get fromContext => getProvider<CacheService>();
 
-  /// Returns a [CacheFlutterVersion] from a [version]
-  CacheFlutterVersion? getVersion(
-    FlutterVersion version,
-  ) {
+  /// Retrieves a cached Flutter SDK version as a [CacheFlutterVersion].
+  /// If the specified version is not found in the cache, this method returns null.
+  ///
+  /// [version] - The Flutter SDK version to retrieve from the cache.
+  CacheFlutterVersion? getVersion(FlutterVersion version) {
     final versionDir = getVersionCacheDir(version.name);
-    // Return null if version does not exist
     if (!versionDir.existsSync()) return null;
-    return CacheFlutterVersion(
-      version,
-      directory: versionDir.path,
-    );
+    return CacheFlutterVersion(version, directory: versionDir.path);
   }
 
-  /// Lists Installed Flutter SDK Version
+  /// Lists all installed Flutter SDK versions from the cache.
+  /// This asynchronous method returns a list of [CacheFlutterVersion] objects representing
+  /// all the versions available in the cache. If no versions are cached, it returns an empty list.
   Future<List<CacheFlutterVersion>> getAllVersions() async {
     final versionsDir = Directory(context.versionsCachePath);
-    // Returns empty array if directory does not exist
     if (!await versionsDir.exists()) return [];
 
     final versions = await versionsDir.list().toList();
-
     final cacheVersions = <CacheFlutterVersion>[];
 
     for (var version in versions) {
       if (version.path.isDir()) {
         final name = path.basename(version.path);
         final cacheVersion = getVersion(FlutterVersion.parse(name));
-
         if (cacheVersion != null) {
           cacheVersions.add(cacheVersion);
         }
@@ -58,38 +55,50 @@ class CacheService extends ContextService {
     }
 
     cacheVersions.sort((a, b) => a.compareTo(b));
-
     return cacheVersions.reversed.toList();
   }
 
-  /// Removes a Version of Flutter SDK
+  /// Removes a specific version of the Flutter SDK from the cache.
+  /// This method deletes the directory containing the specified version.
+  ///
+  /// [version] - The version of the Flutter SDK to remove from the cache.
   void remove(FlutterVersion version) {
     final versionDir = getVersionCacheDir(version.name);
     if (versionDir.existsSync()) versionDir.deleteSync(recursive: true);
   }
 
-  /// Verifies that cache is correct
-  /// returns 'true' if cache is correct 'false' if its not
+  /// Verifies the executability of a cached Flutter SDK version.
+  /// Returns true if the cache contains an executable Flutter SDK version, otherwise false.
+  ///
+  /// [version] - The cached Flutter SDK version to verify.
   Future<bool> _verifyIsExecutable(CacheFlutterVersion version) async {
     final binExists = File(version.flutterExec).existsSync();
-
     return binExists && await isExecutable(version.flutterExec);
   }
 
-  // Verifies that the cache version name matches the flutter version
+  /// Checks if the cached version name matches the actual Flutter SDK version.
+  /// Returns true for channel versions or if the SDK version is unavailable. Otherwise,
+  /// returns true if the version names match.
+  ///
+  /// [version] - The cached Flutter SDK version to verify.
   bool _verifyVersionMatch(CacheFlutterVersion version) {
-    // If its a channel return true
     if (version.isChannel) return true;
-    // If sdkVersion is not available return true
     if (version.flutterSdkVersion == null) return true;
     return version.flutterSdkVersion == version.version;
   }
 
+  /// Creates and returns a [Directory] object for the cache directory of a specific version.
+  ///
+  /// [version] - The version for which to get the cache directory.
   Directory getVersionCacheDir(String version) {
     return Directory(path.join(context.versionsCachePath, version));
   }
 
-  // Verifies that cache can be executed and matches version
+  /// Verifies the integrity of the cached Flutter SDK version.
+  /// Returns a [CacheIntegrity] enum value indicating the state of the cache:
+  /// valid, invalid, or a version mismatch.
+  ///
+  /// [version] - The cached Flutter SDK version to verify.
   Future<CacheIntegrity> verifyCacheIntegrity(
       CacheFlutterVersion version) async {
     final isExecutable = await _verifyIsExecutable(version);
@@ -97,14 +106,16 @@ class CacheService extends ContextService {
 
     if (!isExecutable) return CacheIntegrity.invalid;
     if (!versionsMatch) return CacheIntegrity.versionMismatch;
-
     return CacheIntegrity.valid;
   }
 
-  /// Moves a [CacheFlutterVersion] to the cache of [sdkVersion]
+  /// Moves a cached Flutter SDK version to a directory named after its SDK version.
+  /// This method is used to reorganize the cache based on the actual SDK versions.
+  /// Throws [AppException] if the SDK version is not valid.
+  ///
+  /// [version] - The cached Flutter SDK version to move.
   void moveToSdkVersionDiretory(CacheFlutterVersion version) {
     final sdkVersion = version.flutterSdkVersion;
-
     if (sdkVersion == null) {
       throw AppException(
         'Cannot move to SDK version directory without a valid version',
@@ -113,12 +124,7 @@ class CacheService extends ContextService {
     final versionDir = Directory(version.directory);
     final newDir = getVersionCacheDir(sdkVersion);
 
-    if (newDir.existsSync()) {
-      newDir.deleteSync(recursive: true);
-    }
-
-    if (versionDir.existsSync()) {
-      versionDir.renameSync(newDir.path);
-    }
+    if (newDir.existsSync()) newDir.deleteSync(recursive: true);
+    if (versionDir.existsSync()) versionDir.renameSync(newDir.path);
   }
 }

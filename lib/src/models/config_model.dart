@@ -9,10 +9,14 @@ import 'package:fvm/src/utils/change_case.dart';
 import 'package:fvm/src/utils/extensions.dart';
 import 'package:fvm/src/utils/pretty_json.dart';
 
+/// Represents the keys used in FVM configurations.
+/// Each key can be transformed into different string formats for various purposes.
 class ConfigKeys {
   final String key;
+  // Private method to access different case formats of the key using ChangeCase.
+  final ChangeCase _recase;
 
-  const ConfigKeys(this.key);
+  ConfigKeys(this.key) : _recase = ChangeCase(key);
 
   @override
   operator ==(other) => other is ConfigKeys && other.key == key;
@@ -20,29 +24,33 @@ class ConfigKeys {
   @override
   int get hashCode => key.hashCode;
 
-  ChangeCase get _recase => ChangeCase(key);
+  // Predefined constant keys used in FVM configurations.
+  static ConfigKeys cachePath = ConfigKeys('cache_path');
+  static ConfigKeys gitCache = ConfigKeys('git_cache');
+  static ConfigKeys gitCachePath = ConfigKeys('git_cache_path');
+  static ConfigKeys flutterUrl = ConfigKeys('flutter_url');
+  static ConfigKeys priviledgedAccess = ConfigKeys('priviledged_access');
 
-  static const ConfigKeys cachePath = ConfigKeys('cache_path');
-  static const ConfigKeys useGitCache = ConfigKeys('git_cache');
-  static const ConfigKeys gitCachePath = ConfigKeys('git_cache_path');
-  static const ConfigKeys flutterUrl = ConfigKeys('flutter_url');
-  static const ConfigKeys priviledgedAccess = ConfigKeys('priviledged_access');
-
+  // Methods to get the key in different string formats: environment variable, parameter, and property key.
   String get envKey => 'FVM_${_recase.constantCase}';
   String get paramKey => _recase.paramCase;
   String get propKey => _recase.camelCase;
 
-  static const values = <ConfigKeys>[
+  // A static list containing all predefined ConfigKeys.
+  static final values = <ConfigKeys>[
     cachePath,
-    useGitCache,
+    gitCache,
     gitCachePath,
-    flutterUrl
+    flutterUrl,
+    priviledgedAccess
   ];
 
+  // Static method to retrieve a ConfigKey instance based on its string representation.
   static ConfigKeys fromName(String name) {
     return values.firstWhere((e) => e.key == name);
   }
 
+  // Converts command-line arguments (ArgResults) to a Map, mapping configuration keys to their values.
   static argResultsToMap(ArgResults argResults) {
     final configMap = <String, dynamic>{};
 
@@ -56,6 +64,7 @@ class ConfigKeys {
     return configMap;
   }
 
+  // Configures an ArgParser with options and flags based on the configuration keys.
   static injectArgParser(ArgParser argParser) {
     final configKeysFuncs = {
       ConfigKeys.cachePath.key: () {
@@ -64,9 +73,9 @@ class ConfigKeys {
           help: 'Path where $kPackageName will cache versions',
         );
       },
-      ConfigKeys.useGitCache.key: () {
+      ConfigKeys.gitCache.key: () {
         argParser.addFlag(
-          ConfigKeys.useGitCache.paramKey,
+          ConfigKeys.gitCache.paramKey,
           help:
               'Enable/Disable git cache globally, which is used for faster version installs.',
           negatable: true,
@@ -101,9 +110,10 @@ class ConfigKeys {
   }
 }
 
-class Config {
+/// Base configuration class for FVM settings.
+abstract class Config {
   // If should use gitCache
-  bool? useGitCache;
+  bool? gitCache;
 
   String? gitCachePath;
 
@@ -119,36 +129,16 @@ class Config {
   /// Constructor
   Config({
     required this.cachePath,
-    required this.useGitCache,
+    required this.gitCache,
     required this.gitCachePath,
     required this.flutterUrl,
     required this.priviledgedAccess,
   });
 
-  factory Config.empty() {
-    return Config(
-      cachePath: null,
-      useGitCache: null,
-      gitCachePath: null,
-      flutterUrl: null,
-      priviledgedAccess: null,
-    );
-  }
-
-  factory Config.fromMap(Map<String, dynamic> map) {
-    return Config(
-      cachePath: map[ConfigKeys.cachePath.propKey] as String?,
-      useGitCache: map[ConfigKeys.useGitCache.propKey] as bool?,
-      gitCachePath: map[ConfigKeys.gitCachePath.propKey] as String?,
-      flutterUrl: map[ConfigKeys.flutterUrl.propKey] as String?,
-      priviledgedAccess: map[ConfigKeys.priviledgedAccess.propKey] as bool?,
-    );
-  }
-
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{
+    return {
       if (cachePath != null) ConfigKeys.cachePath.propKey: cachePath,
-      if (useGitCache != null) ConfigKeys.useGitCache.propKey: useGitCache,
+      if (gitCache != null) ConfigKeys.gitCache.propKey: gitCache,
       if (gitCachePath != null) ConfigKeys.gitCachePath.propKey: gitCachePath,
       if (flutterUrl != null) ConfigKeys.flutterUrl.propKey: flutterUrl,
       if (priviledgedAccess != null)
@@ -157,29 +147,49 @@ class Config {
   }
 }
 
-/// App config
-class AppConfig extends Config {
-  /// Disables update notification
-  bool? disableUpdateCheck;
-  DateTime? lastUpdateCheck;
-
-  /// Constructor
-  AppConfig({
-    required this.disableUpdateCheck,
-    required this.lastUpdateCheck,
+class EnvConfig extends Config {
+  EnvConfig({
     required super.cachePath,
-    required super.useGitCache,
+    required super.gitCache,
     required super.gitCachePath,
     required super.flutterUrl,
     required super.priviledgedAccess,
   });
 
+  factory EnvConfig.fromMap(Map<String, dynamic> map) {
+    return EnvConfig(
+      cachePath: map[ConfigKeys.cachePath.propKey] as String?,
+      gitCache: map[ConfigKeys.gitCache.propKey] as bool?,
+      gitCachePath: map[ConfigKeys.gitCachePath.propKey] as String?,
+      flutterUrl: map[ConfigKeys.flutterUrl.propKey] as String?,
+      priviledgedAccess: map[ConfigKeys.priviledgedAccess.propKey] as bool?,
+    );
+  }
+}
+
+/// Extended configuration class for application-specific settings, inheriting from Config.
+class AppConfig extends Config {
+  bool? disableUpdateCheck; // Indicates if update notifications are disabled.
+  DateTime? lastUpdateCheck; // Timestamp of the last update check.
+
+  // Constructor for initializing AppConfig with additional properties along with inherited ones.
+  AppConfig({
+    required this.disableUpdateCheck,
+    required this.lastUpdateCheck,
+    required super.cachePath,
+    required super.gitCache,
+    required super.gitCachePath,
+    required super.flutterUrl,
+    required super.priviledgedAccess,
+  });
+
+  // Factory constructor for creating an empty AppConfig instance.
   factory AppConfig.empty() {
     return AppConfig(
       disableUpdateCheck: null,
       lastUpdateCheck: null,
       cachePath: null,
-      useGitCache: null,
+      gitCache: null,
       gitCachePath: null,
       flutterUrl: null,
       priviledgedAccess: null,
@@ -195,13 +205,12 @@ class AppConfig extends Config {
   }
 
   factory AppConfig.fromMap(Map<String, dynamic> map) {
-    final envConfig = Config.fromMap(map);
     return AppConfig(
-      cachePath: envConfig.cachePath,
-      gitCachePath: envConfig.gitCachePath,
-      flutterUrl: envConfig.flutterUrl,
-      useGitCache: envConfig.useGitCache,
-      priviledgedAccess: envConfig.priviledgedAccess,
+      cachePath: map[ConfigKeys.cachePath.propKey] as String?,
+      gitCache: map[ConfigKeys.gitCache.propKey] as bool?,
+      gitCachePath: map[ConfigKeys.gitCachePath.propKey] as String?,
+      flutterUrl: map[ConfigKeys.flutterUrl.propKey] as String?,
+      priviledgedAccess: map[ConfigKeys.priviledgedAccess.propKey] as bool?,
       disableUpdateCheck: map['disableUpdateCheck'] as bool?,
       lastUpdateCheck: map['lastUpdateCheck'] != null
           ? DateTime.parse(map['lastUpdateCheck'] as String)
@@ -223,9 +232,10 @@ class AppConfig extends Config {
     return AppConfig.fromMap(json.decode(source) as Map<String, dynamic>);
   }
 
+  // Creates a copy of the current AppConfig instance with optional new values.
   AppConfig copyWith({
     String? cachePath,
-    bool? useGitCache,
+    bool? gitCache,
     String? gitCachePath,
     String? flutterUrl,
     bool? disableUpdateCheck,
@@ -234,7 +244,7 @@ class AppConfig extends Config {
   }) {
     return AppConfig(
       cachePath: cachePath ?? this.cachePath,
-      useGitCache: useGitCache ?? this.useGitCache,
+      gitCache: gitCache ?? this.gitCache,
       gitCachePath: gitCachePath ?? this.gitCachePath,
       flutterUrl: flutterUrl ?? this.flutterUrl,
       disableUpdateCheck: disableUpdateCheck ?? this.disableUpdateCheck,
@@ -243,10 +253,11 @@ class AppConfig extends Config {
     );
   }
 
+  // Merges the current AppConfig instance with another AppConfig instance.
   AppConfig merge(AppConfig? config) {
     return copyWith(
       cachePath: config?.cachePath,
-      useGitCache: config?.useGitCache,
+      gitCache: config?.gitCache,
       gitCachePath: config?.gitCachePath,
       flutterUrl: config?.flutterUrl,
       disableUpdateCheck: config?.disableUpdateCheck,
@@ -256,12 +267,14 @@ class AppConfig extends Config {
   }
 
   AppConfig mergeConfig(Config? config) {
+    if (config == null) return this;
+
     return copyWith(
-      cachePath: config?.cachePath,
-      useGitCache: config?.useGitCache,
-      gitCachePath: config?.gitCachePath,
-      flutterUrl: config?.flutterUrl,
-      priviledgedAccess: config?.priviledgedAccess,
+      cachePath: config.cachePath,
+      gitCache: config.gitCache,
+      gitCachePath: config.gitCachePath,
+      flutterUrl: config.flutterUrl,
+      priviledgedAccess: config.priviledgedAccess,
     );
   }
 
@@ -292,7 +305,7 @@ class ProjectConfig extends Config {
   /// Constructor
   ProjectConfig({
     super.cachePath,
-    super.useGitCache,
+    super.gitCache,
     super.gitCachePath,
     super.flutterUrl,
     super.priviledgedAccess,
@@ -307,13 +320,12 @@ class ProjectConfig extends Config {
 
   /// Returns ConfigDto from a map
   factory ProjectConfig.fromMap(Map<String, dynamic> map) {
-    final envConfig = Config.fromMap(map);
     return ProjectConfig(
-      cachePath: envConfig.cachePath,
-      gitCachePath: envConfig.gitCachePath,
-      flutterUrl: envConfig.flutterUrl,
-      useGitCache: envConfig.useGitCache,
-      priviledgedAccess: envConfig.priviledgedAccess,
+      cachePath: map[ConfigKeys.cachePath.propKey] as String?,
+      gitCache: map[ConfigKeys.gitCache.propKey] as bool?,
+      gitCachePath: map[ConfigKeys.gitCachePath.propKey] as String?,
+      flutterUrl: map[ConfigKeys.flutterUrl.propKey] as String?,
+      priviledgedAccess: map[ConfigKeys.priviledgedAccess.propKey] as bool?,
       updateGitIgnore: map['updateGitIgnore'] as bool?,
       flutterSdkVersion: map['flutterSdkVersion'] ?? map['flutter'] as String?,
       updateVscodeSettings: map['updateVscodeSettings'] as bool?,
@@ -364,13 +376,13 @@ class ProjectConfig extends Config {
   }
 
   /// Copies current config and overrides with new values
-  /// Returns a new ConfigDto
+  /// Returns a new ProjectConfig
 
   ProjectConfig copyWith({
     String? cachePath,
     String? fvmVersionsDir,
     String? flutterSdkVersion,
-    bool? useGitCache,
+    bool? gitCache,
     bool? updateVscodeSettings,
     bool? updateGitIgnore,
     bool? runPubGetOnSdkChanges,
@@ -394,24 +406,9 @@ class ProjectConfig extends Config {
       updateVscodeSettings: updateVscodeSettings ?? _updateVscodeSettings,
       runPubGetOnSdkChanges: runPubGetOnSdkChanges ?? _runPubGetOnSdkChanges,
       updateGitIgnore: updateGitIgnore ?? _updateGitIgnore,
-      useGitCache: useGitCache ?? this.useGitCache,
+      gitCache: gitCache ?? this.gitCache,
       gitCachePath: gitCachePath ?? this.gitCachePath,
       flutterUrl: flutterUrl ?? this.flutterUrl,
-    );
-  }
-
-  ProjectConfig merge(ProjectConfig config) {
-    return copyWith(
-      cachePath: config.cachePath,
-      useGitCache: config.useGitCache,
-      gitCachePath: config.gitCachePath,
-      flutterUrl: config.flutterUrl,
-      flutterSdkVersion: config.flutterSdkVersion,
-      priviledgedAccess: config.priviledgedAccess,
-      flavors: config.flavors,
-      updateVscodeSettings: config._updateVscodeSettings,
-      updateGitIgnore: config._updateGitIgnore,
-      runPubGetOnSdkChanges: config._runPubGetOnSdkChanges,
     );
   }
 

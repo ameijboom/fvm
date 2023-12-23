@@ -80,9 +80,7 @@ class CacheFlutterVersion extends FlutterVersion {
   }
 
   @override
-  String toString() {
-    return name;
-  }
+  String toString() => name;
 
   @override
   bool operator ==(Object other) {

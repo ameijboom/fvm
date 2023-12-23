@@ -335,28 +335,58 @@ void _manageVscodeSettings(Project project) {
     vscodeSettingsFile.createSync(recursive: true);
   }
 
+  bool isUpdated = false;
+
   Map<String, dynamic> currentSettings = {};
 
   // Check if settings.json exists; if not, create it.
-  if (vscodeSettingsFile.existsSync()) {
-    try {
-      String contents = vscodeSettingsFile.readAsStringSync();
-      final sanitizedContent = contents.replaceAll(RegExp(r'\/\/.*'), '');
-      if (sanitizedContent.isNotEmpty) {
-        currentSettings = json.decode(sanitizedContent);
-      }
-    } on FormatException {
-      final relativePath = relative(
-        vscodeSettingsFile.path,
-        from: ctx.workingDirectory,
-      );
-      throw AppDetailedException(
-        'Error parsing $kVsCode settings at $relativePath',
-        'Please use a tool like https://jsonformatter.curiousconcept.com to validate and fix it',
-      );
+
+  try {
+    String contents = vscodeSettingsFile.readAsStringSync();
+    final sanitizedContent = contents.replaceAll(RegExp(r'\/\/.*'), '');
+    if (sanitizedContent.isNotEmpty) {
+      currentSettings = json.decode(sanitizedContent);
     }
-  } else {
-    vscodeSettingsFile.create(recursive: true);
+  } on FormatException {
+    final relativePath = relative(
+      vscodeSettingsFile.path,
+      from: ctx.workingDirectory,
+    );
+    throw AppDetailedException(
+      'Error parsing $kVsCode settings at $relativePath',
+      'Please use a tool like https://jsonformatter.curiousconcept.com to validate and fix it',
+    );
+  }
+
+  Map<String, dynamic> recommendedSettings = {
+    'search.exclude': {'**/.fvm/versions': true},
+    'files.watcherExclude': {'**/.fvm/versions': true},
+    'files.exclude': {'**/.fvm/versions': true}
+  };
+
+  for (var entry in recommendedSettings.entries) {
+    final recommendedValue = entry.value as Map<String, dynamic>;
+
+    if (currentSettings.containsKey(entry.key)) {
+      final currentValue = currentSettings[entry.key] as Map<String, dynamic>;
+
+      for (var innerEntry in recommendedValue.entries) {
+        if (currentValue[innerEntry.key] != innerEntry.value) {
+          currentValue[innerEntry.key] = innerEntry.value;
+          isUpdated = true;
+        }
+      }
+    } else {
+      currentSettings[entry.key] = recommendedValue;
+      isUpdated = true;
+    }
+  }
+
+  // Write updated settings back to settings.json
+  if (isUpdated) {
+    logger.success(
+      'VScode $kPackageName settings has been updated. with correct exclude settings\n',
+    );
   }
 
   if (ctx.priviledgedAccess) {

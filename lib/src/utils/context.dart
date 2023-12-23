@@ -100,7 +100,7 @@ class FVMContext {
   String get fvmDir => config.cachePath ?? kAppDirHome;
 
   /// Flag to determine if should use git cache
-  bool get gitCache => config.useGitCache ?? true;
+  bool get gitCache => config.gitCache ?? true;
 
   String get gitCachePath {
     // If git cache is not overriden use default based on fvmDir
