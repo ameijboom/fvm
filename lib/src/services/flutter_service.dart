@@ -18,10 +18,20 @@ import '../utils/commands.dart';
 /// Provides functionality to interact with and manage the Flutter SDK.
 /// This class includes methods for upgrading, installing, and verifying Flutter SDK versions.
 class FlutterService extends ContextService {
-  FlutterService(super.context);
+  const FlutterService(super.context);
+
+  /// Ensures that the git cache directory exists and is up-to-date.
+  Future<void> _ensureCacheDir() async {
+    final isGitDir = await GitDir.isGitDir(context.gitCachePath);
+
+    // If cache file does not exists create it
+    if (!isGitDir) {
+      await updateLocalMirror();
+    }
+  }
 
   /// Retrieves an instance of [FlutterService] from the current context.
-  static FlutterService get fromContext => getProvider<FlutterService>();
+  static FlutterService get fromContext => getProvider();
 
   /// Upgrades a cached Flutter SDK channel to the latest version.
   /// Throws [AppException] if the provided version is not a channel.
@@ -66,10 +76,7 @@ class FlutterService extends ContextService {
       channel ?? version.name,
     ];
 
-    final useMirrorParams = [
-      '--reference',
-      context.gitCachePath,
-    ];
+    final useMirrorParams = ['--reference', context.gitCachePath];
 
     final cloneArgs = [
       //if its a git hash
@@ -78,16 +85,13 @@ class FlutterService extends ContextService {
     ];
 
     try {
-      final result = await runGit(
-        [
-          'clone',
-          '--progress',
-          ...cloneArgs,
-          context.flutterUrl,
-          versionDir.path,
-        ],
-        echoOutput: context.isTest || !logger.isVerbose ? false : true,
-      );
+      final result = await runGit([
+        'clone',
+        '--progress',
+        ...cloneArgs,
+        context.flutterUrl,
+        versionDir.path,
+      ], echoOutput: !(context.isTest || !logger.isVerbose));
 
       final gitVersionDir =
           CacheService(context).getVersionCacheDir(version.name);
@@ -115,8 +119,6 @@ class FlutterService extends ContextService {
       CacheService(context).remove(version);
       rethrow;
     }
-
-    return;
   }
 
   /// Updates the local Flutter repository mirror.
@@ -147,16 +149,6 @@ class FlutterService extends ContextService {
       await runGitCloneUpdate(
         ['clone', '--progress', context.flutterUrl, gitCacheDir.path],
       );
-    }
-  }
-
-  /// Ensures that the git cache directory exists and is up-to-date.
-  Future<void> _ensureCacheDir() async {
-    final isGitDir = await GitDir.isGitDir(context.gitCachePath);
-
-    // If cache file does not exists create it
-    if (!isGitDir) {
-      await updateLocalMirror();
     }
   }
 

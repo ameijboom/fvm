@@ -13,9 +13,11 @@ class GlobalVersionService extends ContextService {
   /// Constructs the GlobalVersionService with the given context.
   const GlobalVersionService(super.context);
 
+  /// Private getter to obtain the symbolic link to the global cache.
+  Link get _globalCacheLink => Link(context.globalCacheLink);
+
   /// Provides an instance of GlobalVersionService from the given context.
-  static GlobalVersionService get fromContext =>
-      getProvider<GlobalVersionService>();
+  static GlobalVersionService get fromContext => getProvider();
 
   /// Sets the specified [CacheFlutterVersion] as the global Flutter SDK version.
   /// It creates a symbolic link in the file system to the version's directory.
@@ -24,9 +26,6 @@ class GlobalVersionService extends ContextService {
   void setGlobal(CacheFlutterVersion version) {
     context.globalCacheLink.link.createLink(version.directory);
   }
-
-  /// Private getter to obtain the symbolic link to the global cache.
-  Link get _globalCacheLink => Link(context.globalCacheLink);
 
   /// Retrieves the global Flutter SDK version, if set.
   /// Returns null if no global version is configured.

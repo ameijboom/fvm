@@ -18,11 +18,31 @@ enum CacheIntegrity {
 
 /// This class provides methods to manage the local cache of Flutter SDK versions.
 class CacheService extends ContextService {
-  CacheService(super.context);
+  const CacheService(super.context);
+
+  /// Verifies the executability of a cached Flutter SDK version.
+  /// Returns true if the cache contains an executable Flutter SDK version, otherwise false.
+  ///
+  /// [version] - The cached Flutter SDK version to verify.
+  Future<bool> _verifyIsExecutable(CacheFlutterVersion version) async {
+    final binExists = File(version.flutterExec).existsSync();
+    return binExists && await isExecutable(version.flutterExec);
+  }
+
+  /// Checks if the cached version name matches the actual Flutter SDK version.
+  /// Returns true for channel versions or if the SDK version is unavailable. Otherwise,
+  /// returns true if the version names match.
+  ///
+  /// [version] - The cached Flutter SDK version to verify.
+  bool _verifyVersionMatch(CacheFlutterVersion version) {
+    if (version.isChannel) return true;
+    if (version.flutterSdkVersion == null) return true;
+    return version.flutterSdkVersion == version.version;
+  }
 
   /// Gets an instance of [CacheService] from the current context.
   /// This static getter allows for easy access to the cache service from anywhere in the app.
-  static CacheService get fromContext => getProvider<CacheService>();
+  static CacheService get fromContext => getProvider();
 
   /// Retrieves a cached Flutter SDK version as a [CacheFlutterVersion].
   /// If the specified version is not found in the cache, this method returns null.
@@ -67,26 +87,6 @@ class CacheService extends ContextService {
     if (versionDir.existsSync()) versionDir.deleteSync(recursive: true);
   }
 
-  /// Verifies the executability of a cached Flutter SDK version.
-  /// Returns true if the cache contains an executable Flutter SDK version, otherwise false.
-  ///
-  /// [version] - The cached Flutter SDK version to verify.
-  Future<bool> _verifyIsExecutable(CacheFlutterVersion version) async {
-    final binExists = File(version.flutterExec).existsSync();
-    return binExists && await isExecutable(version.flutterExec);
-  }
-
-  /// Checks if the cached version name matches the actual Flutter SDK version.
-  /// Returns true for channel versions or if the SDK version is unavailable. Otherwise,
-  /// returns true if the version names match.
-  ///
-  /// [version] - The cached Flutter SDK version to verify.
-  bool _verifyVersionMatch(CacheFlutterVersion version) {
-    if (version.isChannel) return true;
-    if (version.flutterSdkVersion == null) return true;
-    return version.flutterSdkVersion == version.version;
-  }
-
   /// Creates and returns a [Directory] object for the cache directory of a specific version.
   ///
   /// [version] - The version for which to get the cache directory.
@@ -100,7 +100,8 @@ class CacheService extends ContextService {
   ///
   /// [version] - The cached Flutter SDK version to verify.
   Future<CacheIntegrity> verifyCacheIntegrity(
-      CacheFlutterVersion version) async {
+    CacheFlutterVersion version,
+  ) async {
     final isExecutable = await _verifyIsExecutable(version);
     final versionsMatch = _verifyVersionMatch(version);
 

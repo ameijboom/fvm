@@ -11,11 +11,13 @@ import 'package:path/path.dart' as path;
 /// Provides services for interacting with local Flutter projects.
 /// This includes functionalities like finding and updating project configurations.
 class ProjectService extends ContextService {
+  const
+
   /// Constructs the ProjectService with the given context.
   ProjectService(super.context);
 
   /// Retrieves an instance of ProjectService from the provided context.
-  static ProjectService get fromContext => getProvider<ProjectService>();
+  static ProjectService get fromContext => getProvider();
 
   /// Recursively searches for a Flutter project directory starting from [directory].
   /// If [directory] is null, the search begins from the current working directory.

@@ -11,14 +11,9 @@ import '../../fvm.dart';
 /// both from a file and environment variables. It ensures that the configuration settings
 /// for FVM are centralized and managed consistently.
 class ConfigRepository {
+  const
   // Private constructor to prevent direct instantiation.
   ConfigRepository._();
-
-  /// Gets the path of the FVM configuration file.
-  ///
-  /// This is a private static getter that retrieves the path where the FVM configuration
-  /// file is located. The path is defined in the FVM constants.
-  static String get _configPath => kAppConfigFile;
 
   /// Loads the FVM configuration from a file.
   ///
@@ -132,4 +127,10 @@ class ConfigRepository {
       priviledgedAccess: priviledgedAccess,
     );
   }
+
+  /// Gets the path of the FVM configuration file.
+  ///
+  /// This is a private static getter that retrieves the path where the FVM configuration
+  /// file is located. The path is defined in the FVM constants.
+  static String get _configPath => kAppConfigFile;
 }

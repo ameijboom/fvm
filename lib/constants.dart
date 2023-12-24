@@ -44,11 +44,7 @@ final kAppDirHome = join(kUserHome, kPackageName);
 /// Flutter Channels
 const kFlutterChannels = ['master', 'stable', 'dev', 'beta'];
 
-final kAppConfigFile = join(
-  _configHome,
-  kPackageName,
-  kFvmConfigFileName,
-);
+final kAppConfigFile = join(_configHome, kPackageName, kFvmConfigFileName);
 
 String get _configHome {
   if (Platform.isWindows) {

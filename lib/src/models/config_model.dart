@@ -13,17 +13,6 @@ import 'package:fvm/src/utils/pretty_json.dart';
 /// Each key can be transformed into different string formats for various purposes.
 class ConfigKeys {
   final String key;
-  // Private method to access different case formats of the key using ChangeCase.
-  final ChangeCase _recase;
-
-  ConfigKeys(this.key) : _recase = ChangeCase(key);
-
-  @override
-  operator ==(other) => other is ConfigKeys && other.key == key;
-
-  @override
-  int get hashCode => key.hashCode;
-
   // Predefined constant keys used in FVM configurations.
   static ConfigKeys cachePath = ConfigKeys('cache_path');
   static ConfigKeys gitCache = ConfigKeys('git_cache');
@@ -31,19 +20,19 @@ class ConfigKeys {
   static ConfigKeys flutterUrl = ConfigKeys('flutter_url');
   static ConfigKeys priviledgedAccess = ConfigKeys('priviledged_access');
 
-  // Methods to get the key in different string formats: environment variable, parameter, and property key.
-  String get envKey => 'FVM_${_recase.constantCase}';
-  String get paramKey => _recase.paramCase;
-  String get propKey => _recase.camelCase;
-
   // A static list containing all predefined ConfigKeys.
   static final values = <ConfigKeys>[
     cachePath,
     gitCache,
     gitCachePath,
     flutterUrl,
-    priviledgedAccess
+    priviledgedAccess,
   ];
+
+  // Private method to access different case formats of the key using ChangeCase.
+  final ChangeCase _recase;
+
+  ConfigKeys(this.key) : _recase = ChangeCase(key);
 
   // Static method to retrieve a ConfigKey instance based on its string representation.
   static ConfigKeys fromName(String name) {
@@ -101,13 +90,24 @@ class ConfigKeys {
           negatable: true,
           defaultsTo: true,
         );
-      }
+      },
     };
 
     for (final key in values) {
       configKeysFuncs[key.key]?.call();
     }
   }
+
+  // Methods to get the key in different string formats: environment variable, parameter, and property key.
+  String get envKey => 'FVM_${_recase.constantCase}';
+  String get paramKey => _recase.paramCase;
+  String get propKey => _recase.camelCase;
+
+  @override
+  operator ==(other) => other is ConfigKeys && other.key == key;
+
+  @override
+  int get hashCode => key.hashCode;
 }
 
 /// Base configuration class for FVM settings.
@@ -196,14 +196,6 @@ class AppConfig extends Config {
     );
   }
 
-  static AppConfig? loadFromPath(String path) {
-    final configFile = File(path);
-
-    return configFile.existsSync()
-        ? AppConfig.fromJson(configFile.readAsStringSync())
-        : null;
-  }
-
   factory AppConfig.fromMap(Map<String, dynamic> map) {
     return AppConfig(
       cachePath: map[ConfigKeys.cachePath.propKey] as String?,
@@ -218,18 +210,16 @@ class AppConfig extends Config {
     );
   }
 
-  @override
-  Map<String, dynamic> toMap() {
-    return {
-      ...super.toMap(),
-      if (disableUpdateCheck != null) 'disableUpdateCheck': disableUpdateCheck,
-      if (lastUpdateCheck != null)
-        'lastUpdateCheck': lastUpdateCheck?.toIso8601String(),
-    };
-  }
-
   factory AppConfig.fromJson(String source) {
     return AppConfig.fromMap(json.decode(source) as Map<String, dynamic>);
+  }
+
+  static AppConfig? loadFromPath(String path) {
+    final configFile = File(path);
+
+    return configFile.existsSync()
+        ? AppConfig.fromJson(configFile.readAsStringSync())
+        : null;
   }
 
   // Creates a copy of the current AppConfig instance with optional new values.
@@ -283,6 +273,16 @@ class AppConfig extends Config {
 
     path.file.write(jsonContents);
   }
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {
+      ...super.toMap(),
+      if (disableUpdateCheck != null) 'disableUpdateCheck': disableUpdateCheck,
+      if (lastUpdateCheck != null)
+        'lastUpdateCheck': lastUpdateCheck?.toIso8601String(),
+    };
+  }
 }
 
 /// Project config
@@ -330,20 +330,9 @@ class ProjectConfig extends Config {
       flutterSdkVersion: map['flutterSdkVersion'] ?? map['flutter'] as String?,
       updateVscodeSettings: map['updateVscodeSettings'] as bool?,
       runPubGetOnSdkChanges: map['runPubGetOnSdkChanges'] as bool?,
-      flavors: map['flavors'] != null
-          ? Map<String, String>.from(map['flavors'] as Map)
-          : null,
+      flavors: map['flavors'] != null ? Map.from(map['flavors'] as Map) : null,
     );
   }
-
-  /// Returns update vscode settings
-  bool? get updateVscodeSettings => _updateVscodeSettings;
-
-  /// Returns update git ignore
-  bool? get updateGitIgnore => _updateGitIgnore;
-
-  /// Returns run pub get on sdk changes
-  bool? get runPubGetOnSdkChanges => _runPubGetOnSdkChanges;
 
   /// Returns ConfigDto from a json string
   factory ProjectConfig.fromJson(String source) =>
@@ -357,30 +346,20 @@ class ProjectConfig extends Config {
         : null;
   }
 
-  /// It checks each property for null prior to adding it to the map.
-  /// This is to ensure the returned map doesn't contain any null values.
-  /// Also, if [flavors] is not empty it adds it to the map.
+  /// Returns update vscode settings
+  bool? get updateVscodeSettings => _updateVscodeSettings;
 
-  @override
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      ...super.toMap(),
-      if (flutterSdkVersion != null) 'flutter': flutterSdkVersion,
-      if (_updateVscodeSettings != null)
-        'updateVscodeSettings': _updateVscodeSettings,
-      if (_updateGitIgnore != null) 'updateGitIgnore': _updateGitIgnore,
-      if (_runPubGetOnSdkChanges != null)
-        'runPubGetOnSdkChanges': _runPubGetOnSdkChanges,
-      if (flavors != null && flavors!.isNotEmpty) 'flavors': flavors,
-    };
-  }
+  /// Returns update git ignore
+  bool? get updateGitIgnore => _updateGitIgnore;
+
+  /// Returns run pub get on sdk changes
+  bool? get runPubGetOnSdkChanges => _runPubGetOnSdkChanges;
 
   /// Copies current config and overrides with new values
   /// Returns a new ProjectConfig
 
   ProjectConfig copyWith({
     String? cachePath,
-    String? fvmVersionsDir,
     String? flutterSdkVersion,
     bool? gitCache,
     bool? updateVscodeSettings,
@@ -390,7 +369,6 @@ class ProjectConfig extends Config {
     String? gitCachePath,
     String? flutterUrl,
     Map<String, String>? flavors,
-    bool? disableUpdate,
   }) {
     // merge map and override the keys
     final mergedFlavors = <String, String>{
@@ -416,5 +394,23 @@ class ProjectConfig extends Config {
     final jsonContents = prettyJson(toMap());
 
     path.file.write(jsonContents);
+  }
+
+  /// It checks each property for null prior to adding it to the map.
+  /// This is to ensure the returned map doesn't contain any null values.
+  /// Also, if [flavors] is not empty it adds it to the map.
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {
+      ...super.toMap(),
+      if (flutterSdkVersion != null) 'flutter': flutterSdkVersion,
+      if (_updateVscodeSettings != null)
+        'updateVscodeSettings': _updateVscodeSettings,
+      if (_updateGitIgnore != null) 'updateGitIgnore': _updateGitIgnore,
+      if (_runPubGetOnSdkChanges != null)
+        'runPubGetOnSdkChanges': _runPubGetOnSdkChanges,
+      if (flavors != null && flavors!.isNotEmpty) 'flavors': flavors,
+    };
   }
 }
